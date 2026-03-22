@@ -19,17 +19,17 @@ func _ready() -> void:
 	# Collision shape
 	var col = CollisionShape2D.new()
 	var rect_shape = RectangleShape2D.new()
-	rect_shape.size = Vector2(14, 20)
+	rect_shape.size = Vector2(14, 26)
 	col.shape = rect_shape
 	add_child(col)
 
 	# Damage area (hurts player on contact)
 	damage_area = Area2D.new()
 	damage_area.collision_layer = 0
-	damage_area.collision_mask = 2  # player layer
+	damage_area.collision_mask = 2
 	var da_col = CollisionShape2D.new()
 	var da_rect = RectangleShape2D.new()
-	da_rect.size = Vector2(14, 20)
+	da_rect.size = Vector2(14, 26)
 	da_col.shape = da_rect
 	damage_area.add_child(da_col)
 	add_child(damage_area)
@@ -39,16 +39,29 @@ func _ready() -> void:
 	velocity.x = facing * SPEED * speed_mult
 
 func _draw() -> void:
-	var col = Color(0.85, 0.15, 0.15) if not is_hurt else Color(1.0, 0.7, 0.7)
+	var green := Color(0.22, 0.62, 0.15) if not is_hurt else Color(0.6, 1.0, 0.5)
+	var dark  := Color(0.10, 0.30, 0.06)
+	var face  := Color(0.04, 0.07, 0.03)
+
+	# Legs (two stubby creeper legs)
+	draw_rect(Rect2(-7,  4,  5, 9), green)
+	draw_rect(Rect2( 2,  4,  5, 9), green)
+
 	# Body
-	draw_rect(Rect2(-7, -10, 14, 10), col)
-	# Head
-	draw_rect(Rect2(-6, -20, 12, 12), col)
-	# Eye
-	draw_rect(Rect2(facing * 2.0, -17.0, 4, 4), Color(0.1, 0.0, 0.0))
-	# Spikes on top
-	draw_rect(Rect2(-5, -23, 4, 4), col)
-	draw_rect(Rect2(1, -23, 4, 4), col)
+	draw_rect(Rect2(-7, -10, 14, 16), green)
+	draw_rect(Rect2(-7,   0, 14,  2), dark)   # waist shadow
+
+	# Head (slightly wider than body)
+	draw_rect(Rect2(-8, -26, 16, 18), green)
+
+	# Eyes (classic creeper — two dark squares)
+	draw_rect(Rect2(-6, -24, 4, 4), face)
+	draw_rect(Rect2( 2, -24, 4, 4), face)
+
+	# Mouth (creeper frown: top bar + two lower side blocks)
+	draw_rect(Rect2(-4, -18, 8, 2), face)   # top bar
+	draw_rect(Rect2(-6, -16, 4, 4), face)   # lower left
+	draw_rect(Rect2( 2, -16, 4, 4), face)   # lower right
 
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
@@ -59,15 +72,24 @@ func _physics_process(delta: float) -> void:
 		if hurt_timer <= 0.0:
 			is_hurt = false
 
-	# Patrol
+	# Patrol — flip at walls or when floor ends ahead
 	patrol_timer -= delta
-	if patrol_timer <= 0.0 or is_on_wall():
+	if patrol_timer <= 0.0 or is_on_wall() or (is_on_floor() and not _has_floor_ahead()):
 		facing = -facing
 		velocity.x = facing * SPEED * speed_mult
 		patrol_timer = randf_range(1.5, 3.0)
 
 	move_and_slide()
 	queue_redraw()
+
+# Raycast slightly ahead and below to detect platform edge
+func _has_floor_ahead() -> bool:
+	var space := get_world_2d().direct_space_state
+	var start := global_position + Vector2(facing * 10, 5)
+	var end   := global_position + Vector2(facing * 10, 32)
+	var query := PhysicsRayQueryParameters2D.create(start, end, 1)
+	query.exclude = [self]
+	return not space.intersect_ray(query).is_empty()
 
 func take_hit(knockback: Vector2) -> void:
 	health -= 1
