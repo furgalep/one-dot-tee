@@ -1,8 +1,17 @@
-[gd_scene load_steps=2 format=3 uid="uid://main"]
+[gd_scene load_steps=3 format=3 uid="uid://main"]
 
 [ext_resource type="PackedScene" uid="uid://player" path="res://scenes/player/player.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/main.gd" id="2"]
 
 [node name="Main" type="Node2D"]
+script = ExtResource("2")
 
 [node name="Player" parent="." instance=ExtResource("1")]
-position = Vector2(640, 360)
+position = Vector2(120, 670)
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="HealthLabel" type="Label" parent="HUD"]
+offset_left = 12.0
+offset_top = 12.0
+text = "HP  ■■■■■■"
