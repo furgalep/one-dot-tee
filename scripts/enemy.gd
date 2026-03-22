@@ -1,6 +1,7 @@
 extends CharacterBody2D
 
-const SPEED = 55.0
+const SPEED       = 55.0
+const EnemyDeath  = preload("res://scripts/enemy_death.gd")
 
 var speed_mult := 1.0
 var gravity: float = ProjectSettings.get_setting("physics/2d/default_gravity")
@@ -99,8 +100,33 @@ func take_hit(knockback: Vector2) -> void:
 	is_hurt = true
 	hurt_timer = 0.25
 	if health <= 0:
-		_play_sfx("enemy_defeated")
-		queue_free()
+		_die()
+
+func _die() -> void:
+	_play_sfx("enemy_defeated")
+	collision_layer = 0
+	damage_area.monitoring = false
+	set_physics_process(false)
+
+	# Particle burst at death position
+	var effect := EnemyDeath.new()
+	effect.global_position = global_position
+	get_parent().add_child(effect)
+
+	# Flash white → topple and shrink away
+	var tween := create_tween()
+	tween.tween_callback(func(): is_hurt = true;  queue_redraw())
+	tween.tween_interval(0.07)
+	tween.tween_callback(func(): is_hurt = false; queue_redraw())
+	tween.tween_interval(0.07)
+	tween.tween_callback(func(): is_hurt = true;  queue_redraw())
+	tween.tween_interval(0.07)
+	tween.tween_callback(func(): is_hurt = false; queue_redraw())
+	tween.tween_property(self, "rotation", deg_to_rad(90.0), 0.28) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.parallel().tween_property(self, "scale", Vector2(0.05, 0.05), 0.28)
+	tween.parallel().tween_property(self, "modulate:a", 0.0, 0.22)
+	tween.tween_callback(queue_free)
 
 func _play_sfx(sfx_name: String) -> void:
 	var path := "res://assets/sfx/%s.wav" % sfx_name

@@ -1,87 +1,66 @@
 extends Node2D
 
-const Enemy = preload("res://scenes/enemy/enemy.tscn")
-const Goal = preload("res://scenes/goal/goal.tscn")
+const Boss    = preload("res://scenes/boss/boss.tscn")
 const WinAnim = preload("res://scenes/win_anim/win_anim.tscn")
-const CastleBg = preload("res://scripts/castle_bg.gd")
+const CastleBg       = preload("res://scripts/castle_bg.gd")
+const CastlePlatform = preload("res://scripts/castle_platform.gd")
+
+var _boss_bar: ColorRect
 
 func _ready() -> void:
-	# Background stone wall (red-tinted for level 2)
 	var bg := CastleBg.new()
 	bg.z_index = -10
 	add_child(bg)
 
-	# Floor + walls
-	_platform(640, 716, 1280, 32, false)
-	_platform(-16, 400, 32, 820, false)
-	_platform(1296, 400, 32, 820, false)
+	# Arena floor + walls
+	_platform(640, 708, 1280, 32, false)
+	_platform(-16,  354,   32, 724, false)
+	_platform(1296, 354,   32, 724, false)
 
-	# Platforms — tighter horizontal spacing, same ~70px vertical gap
-	# Row 1  y=640
-	_platform(150, 640, 160, 20)
-	_platform(480, 640, 140, 20)
-	_platform(800, 640, 160, 20)
-	_platform(1100, 640, 140, 20)
-	# Row 2  y=565
-	_platform(300, 565, 140, 20)
-	_platform(640, 565, 160, 20)
-	_platform(980, 565, 140, 20)
-	# Row 3  y=490
-	_platform(120, 490, 140, 20)
-	_platform(440, 490, 140, 20)
-	_platform(780, 490, 140, 20)
-	_platform(1080, 490, 140, 20)
-	# Row 4  y=415
-	_platform(270, 415, 140, 20)
-	_platform(600, 415, 140, 20)
-	_platform(930, 415, 140, 20)
-	# Row 5  y=340
-	_platform(100, 340, 140, 20)
-	_platform(420, 340, 120, 20)
-	_platform(730, 340, 140, 20)
-	_platform(1050, 340, 120, 20)
-	# Row 6  y=265
-	_platform(260, 265, 140, 20)
-	_platform(580, 265, 120, 20)
-	_platform(880, 265, 140, 20)
-	# Row 7  y=190
-	_platform(130, 190, 140, 20)
-	_platform(450, 190, 120, 20)
-	_platform(780, 190, 140, 20)
-	# Goal platform  y=115
-	_platform(640, 115, 200, 20)
+	# Two pillars the player can hide behind
+	_platform(300, 574, 44, 220, false)
+	_platform(980, 574, 44, 220, false)
 
-	# Enemies — more of them, 1.6x faster
-	_spawn_enemy(150, 600, 1.6)
-	_spawn_enemy(480, 600, 1.6)
-	_spawn_enemy(800, 600, 1.6)
-	_spawn_enemy(300, 525, 1.6)
-	_spawn_enemy(640, 525, 1.6)
-	_spawn_enemy(440, 450, 1.6)
-	_spawn_enemy(1080, 450, 1.6)
-	_spawn_enemy(600, 375, 1.6)
-	_spawn_enemy(730, 300, 1.6)
-	_spawn_enemy(580, 225, 1.6)
-	_spawn_enemy(450, 150, 1.6)
+	# Boss entrance ledge (decorative top edge)
+	_platform(640,  30, 1280, 20, true)
 
-	# Goal
-	var goal := Goal.instantiate()
-	goal.position = Vector2(640, 75)
-	add_child(goal)
+	# Spawn boss
+	var boss := Boss.instantiate()
+	boss.name = "Boss"
+	boss.position = Vector2(1050, 660)
+	add_child(boss)
 
 	# HUD
 	var hud := CanvasLayer.new()
 	hud.name = "HUD"
-	var hp_label := Label.new()
-	hp_label.name = "HealthLabel"
-	hp_label.position = Vector2(12, 12)
-	hp_label.text = "HP  ■■■■■■"
-	var lvl_label := Label.new()
-	lvl_label.position = Vector2(560, 12)
-	lvl_label.text = "LEVEL 2"
-	hud.add_child(hp_label)
-	hud.add_child(lvl_label)
 	add_child(hud)
+
+	# Player HP
+	var hp := Label.new()
+	hp.name = "HealthLabel"
+	hp.position = Vector2(12, 12)
+	hp.text = "HP  ■■■■■■"
+	hud.add_child(hp)
+
+	# Boss name
+	var name_lbl := Label.new()
+	name_lbl.text = "☠  DARK KNIGHT"
+	name_lbl.position = Vector2(460, 12)
+	hud.add_child(name_lbl)
+
+	# Boss health bar background
+	var bar_bg := ColorRect.new()
+	bar_bg.size     = Vector2(400, 16)
+	bar_bg.position = Vector2(440, 36)
+	bar_bg.color    = Color(0.2, 0.05, 0.05)
+	hud.add_child(bar_bg)
+
+	# Boss health bar fill
+	_boss_bar = ColorRect.new()
+	_boss_bar.size     = Vector2(400, 16)
+	_boss_bar.position = Vector2(440, 36)
+	_boss_bar.color    = Color(0.85, 0.1, 0.1)
+	hud.add_child(_boss_bar)
 
 func _process(_delta: float) -> void:
 	var player = get_node_or_null("Player")
@@ -91,31 +70,35 @@ func _process(_delta: float) -> void:
 			hp += "■" if i < player.health else "□"
 		$HUD/HealthLabel.text = "HP  " + hp
 
+	var boss = get_node_or_null("Boss")
+	if _boss_bar:
+		if boss:
+			_boss_bar.size.x = 400.0 * boss.health / boss.max_health
+		else:
+			_boss_bar.size.x = 0.0
+
 func on_win() -> void:
 	get_tree().paused = true
 	var anim := WinAnim.instantiate()
-	anim.next_level = "res://scenes/main/main.tscn"  # loop back to level 1
+	anim.next_level = "res://scenes/splash/splash.tscn"
 	add_child(anim)
 
-const CastlePlatform = preload("res://scripts/castle_platform.gd")
-
-func _platform(cx: float, cy: float, w: float, h: float, show_battlements: bool = true) -> void:
+func _platform(cx: float, cy: float, w: float, h: float, battlements: bool = true) -> void:
 	var body := StaticBody2D.new()
-	body.position = Vector2(cx, cy)
+	body.position      = Vector2(cx, cy)
 	body.collision_layer = 1
-	body.collision_mask = 0
+	body.collision_mask  = 0
 
-	var c := CollisionShape2D.new()
+	var col  := CollisionShape2D.new()
 	var rect := RectangleShape2D.new()
 	rect.size = Vector2(w, h)
-	c.shape = rect
-	body.add_child(c)
+	col.shape = rect
+	body.add_child(col)
 
 	var vis := CastlePlatform.new()
-	vis.w = w
-	vis.h = h
-	vis.battlements = show_battlements
-	# Slightly warmer stone tone for level 2
+	vis.w           = w
+	vis.h           = h
+	vis.battlements = battlements
 	vis._stone  = Color(0.48, 0.40, 0.35)
 	vis._dark   = Color(0.26, 0.20, 0.18)
 	vis._light  = Color(0.62, 0.54, 0.48)
@@ -123,9 +106,3 @@ func _platform(cx: float, cy: float, w: float, h: float, show_battlements: bool 
 	body.add_child(vis)
 
 	add_child(body)
-
-func _spawn_enemy(x: float, y: float, spd: float = 1.0) -> void:
-	var e := Enemy.instantiate()
-	e.position = Vector2(x, y)
-	e.speed_mult = spd
-	add_child(e)

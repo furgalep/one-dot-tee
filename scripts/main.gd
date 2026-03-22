@@ -70,7 +70,7 @@ func _process(_delta: float) -> void:
 func on_win() -> void:
 	get_tree().paused = true
 	var anim := WinAnim.instantiate()
-	anim.next_level = "res://scenes/level2/level2.tscn"
+	anim.next_level = "res://scenes/splash/splash.tscn"
 	add_child(anim)
 
 const CastlePlatform = preload("res://scripts/castle_platform.gd")

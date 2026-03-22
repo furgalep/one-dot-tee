@@ -96,4 +96,4 @@ func _burst(count: int) -> void:
 		})
 
 func _wait(t: float) -> Signal:
-	return get_tree().create_timer(t, false, false, true).timeout
+	return get_tree().create_timer(t, true, false, false).timeout
