@@ -43,15 +43,17 @@ func _draw() -> void:
 	var dark  := Color(0.10, 0.30, 0.06)
 	var face  := Color(0.04, 0.07, 0.03)
 
-	# Legs (two stubby creeper legs)
-	draw_rect(Rect2(-7,  4,  5, 9), green)
-	draw_rect(Rect2( 2,  4,  5, 9), green)
+	# Legs — 4 legs spread wide (wider than body)
+	draw_rect(Rect2(-10, 4, 5, 9), green)   # far left
+	draw_rect(Rect2( -4, 4, 4, 9), green)   # near left
+	draw_rect(Rect2(  1, 4, 4, 9), green)   # near right
+	draw_rect(Rect2(  6, 4, 5, 9), green)   # far right
 
-	# Body
-	draw_rect(Rect2(-7, -10, 14, 16), green)
-	draw_rect(Rect2(-7,   0, 14,  2), dark)   # waist shadow
+	# Body — narrow
+	draw_rect(Rect2(-5, -10, 10, 16), green)
+	draw_rect(Rect2(-5,   0, 10,  2), dark)  # waist shadow
 
-	# Head (slightly wider than body)
+	# Head — wider than body
 	draw_rect(Rect2(-8, -26, 16, 18), green)
 
 	# Eyes (classic creeper — two dark squares)

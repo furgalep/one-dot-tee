@@ -1,0 +1,13 @@
+#!/bin/bash
+# Find the tools directory relative to this script
+TOOLS="$(cd "$(dirname "$0")/../../../" && pwd)"
+
+# Kill any existing server on this port
+lsof -ti:8765 | xargs kill -9 2>/dev/null
+
+# Open browser after a short delay
+sleep 0.4 && open "http://localhost:8765/audio_editor.html" &
+
+# Start server
+cd "$TOOLS"
+python3 -m http.server 8765 --bind 127.0.0.1 &>/dev/null
