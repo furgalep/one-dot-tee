@@ -200,12 +200,48 @@ function playSound(id) {
   audio.play();
 }
 
-function saveSound(id) {
+async function saveSound(id) {
   if (!state[id].blob) return;
-  const a = document.createElement('a');
-  a.href = state[id].url;
-  a.download = id + '.wav';
-  a.click();
+  const btn = document.getElementById('save-' + id);
+  const statusEl = document.getElementById('status-' + id);
+  btn.disabled = true;
+  btn.textContent = '💾 Saving...';
+  try {
+    const res = await fetch('/save', {
+      method: 'POST',
+      headers: { 'X-Filename': id + '.wav' },
+      body: state[id].blob,
+    });
+    const json = await res.json();
+    if (json.ok) {
+      btn.textContent = '✓ Saved';
+      statusEl.className = 'status ready';
+      statusEl.textContent = '✓ Saved to assets/sfx/';
+    }
+  } catch(e) {
+    btn.textContent = '💾 Save';
+    btn.disabled = false;
+    alert('Save failed — is the server running?');
+  }
+}
+
+async function loadExisting() {
+  try {
+    const files = await (await fetch('/files')).json();
+    for (const snd of SOUNDS) {
+      if (!files.includes(snd.id + '.wav')) continue;
+      const res = await fetch('/sfx/' + snd.id + '.wav');
+      const blob = await res.blob();
+      const wavBlob = new Blob([await blob.arrayBuffer()], { type: 'audio/wav' });
+      state[snd.id].blob = wavBlob;
+      state[snd.id].url = URL.createObjectURL(wavBlob);
+      document.getElementById('play-' + snd.id).disabled = false;
+      document.getElementById('save-' + snd.id).disabled = false;
+      document.getElementById('status-' + snd.id).className = 'status ready';
+      document.getElementById('status-' + snd.id).textContent = '✓ Loaded from assets/sfx/';
+      drawWaveform(snd.id, wavBlob);
+    }
+  } catch(_) { /* server not running, skip */ }
 }
 
 // Convert MediaRecorder blob -> WAV via AudioContext
@@ -287,6 +323,7 @@ async function drawWaveform(id, blob) {
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 build();
+loadExisting();
 </script>
 </body>
 </html>
