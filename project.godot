@@ -23,5 +23,5 @@ window/size/viewport_height=720
 [rendering]
 
 renderer/rendering_method="mobile"
-environment/defaults/default_clear_color=Color(0.06, 0.04, 0.12, 1)
+environment/defaults/default_clear_color=Color(0.10, 0.09, 0.12, 1)
 textures/canvas_textures/default_texture_filter=0

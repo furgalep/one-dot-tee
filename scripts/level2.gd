@@ -3,21 +3,18 @@ extends Node2D
 const Enemy = preload("res://scenes/enemy/enemy.tscn")
 const Goal = preload("res://scenes/goal/goal.tscn")
 const WinAnim = preload("res://scenes/win_anim/win_anim.tscn")
+const CastleBg = preload("res://scripts/castle_bg.gd")
 
 func _ready() -> void:
-	# Dark red background
-	var bg_layer := CanvasLayer.new()
-	bg_layer.layer = -1
-	var bg := ColorRect.new()
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0.1, 0.03, 0.03)
-	bg_layer.add_child(bg)
-	add_child(bg_layer)
+	# Background stone wall (red-tinted for level 2)
+	var bg := CastleBg.new()
+	bg.z_index = -10
+	add_child(bg)
 
 	# Floor + walls
-	_platform(640, 716, 1280, 32, Color(0.35, 0.1, 0.08))
-	_platform(-16, 400, 32, 820, Color(0.35, 0.1, 0.08))
-	_platform(1296, 400, 32, 820, Color(0.35, 0.1, 0.08))
+	_platform(640, 716, 1280, 32, false)
+	_platform(-16, 400, 32, 820, false)
+	_platform(1296, 400, 32, 820, false)
 
 	# Platforms — tighter horizontal spacing, same ~70px vertical gap
 	# Row 1  y=640
@@ -100,7 +97,9 @@ func on_win() -> void:
 	anim.next_level = "res://scenes/main/main.tscn"  # loop back to level 1
 	add_child(anim)
 
-func _platform(cx: float, cy: float, w: float, h: float, col := Color(0.32, 0.1, 0.08)) -> void:
+const CastlePlatform = preload("res://scripts/castle_platform.gd")
+
+func _platform(cx: float, cy: float, w: float, h: float, show_battlements: bool = true) -> void:
 	var body := StaticBody2D.new()
 	body.position = Vector2(cx, cy)
 	body.collision_layer = 1
@@ -112,10 +111,15 @@ func _platform(cx: float, cy: float, w: float, h: float, col := Color(0.32, 0.1,
 	c.shape = rect
 	body.add_child(c)
 
-	var vis := ColorRect.new()
-	vis.size = Vector2(w, h)
-	vis.position = Vector2(-w / 2.0, -h / 2.0)
-	vis.color = col
+	var vis := CastlePlatform.new()
+	vis.w = w
+	vis.h = h
+	vis.battlements = show_battlements
+	# Slightly warmer stone tone for level 2
+	vis._stone  = Color(0.48, 0.40, 0.35)
+	vis._dark   = Color(0.26, 0.20, 0.18)
+	vis._light  = Color(0.62, 0.54, 0.48)
+	vis._shadow = Color(0.16, 0.12, 0.10)
 	body.add_child(vis)
 
 	add_child(body)

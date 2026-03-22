@@ -3,12 +3,18 @@ extends Node2D
 const Enemy = preload("res://scenes/enemy/enemy.tscn")
 const Goal = preload("res://scenes/goal/goal.tscn")
 const WinAnim = preload("res://scenes/win_anim/win_anim.tscn")
+const CastleBg = preload("res://scripts/castle_bg.gd")
 
 func _ready() -> void:
+	# Background stone wall
+	var bg := CastleBg.new()
+	bg.z_index = -10
+	add_child(bg)
+
 	# Floor + walls
-	_platform(640, 716, 1280, 32)
-	_platform(-16, 400, 32, 820)
-	_platform(1296, 400, 32, 820)
+	_platform(640, 716, 1280, 32, false)
+	_platform(-16, 400, 32, 820, false)
+	_platform(1296, 400, 32, 820, false)
 
 	# Platforms — each row ~70-75px above the last (jump height ~90px)
 	# Row 1  y=640
@@ -67,7 +73,9 @@ func on_win() -> void:
 	anim.next_level = "res://scenes/level2/level2.tscn"
 	add_child(anim)
 
-func _platform(cx: float, cy: float, w: float, h: float) -> void:
+const CastlePlatform = preload("res://scripts/castle_platform.gd")
+
+func _platform(cx: float, cy: float, w: float, h: float, show_battlements: bool = true) -> void:
 	var body := StaticBody2D.new()
 	body.position = Vector2(cx, cy)
 	body.collision_layer = 1
@@ -79,10 +87,10 @@ func _platform(cx: float, cy: float, w: float, h: float) -> void:
 	col.shape = rect
 	body.add_child(col)
 
-	var vis := ColorRect.new()
-	vis.size = Vector2(w, h)
-	vis.position = Vector2(-w / 2.0, -h / 2.0)
-	vis.color = Color(0.22, 0.15, 0.35)
+	var vis := CastlePlatform.new()
+	vis.w = w
+	vis.h = h
+	vis.battlements = show_battlements
 	body.add_child(vis)
 
 	add_child(body)

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Audio Editor — one-dot-tee</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0e0c14;
+    color: #d4d0c8;
+    font-family: monospace;
+    font-size: 15px;
+    padding: 32px;
+  }
+  h1 { color: #a0e080; font-size: 22px; margin-bottom: 6px; }
+  .subtitle { color: #666; margin-bottom: 32px; font-size: 13px; }
+  .subtitle code { color: #a0b8e0; }
+
+  .sound-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #1a1726;
+    border: 1px solid #2e2a3e;
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+  }
+  .sound-name {
+    width: 160px;
+    color: #e0d8b0;
+    font-size: 16px;
+    font-weight: bold;
+  }
+  .sound-name .filename { font-size: 11px; color: #555; font-weight: normal; }
+
+  button {
+    background: #2a2640;
+    color: #c8c0e0;
+    border: 1px solid #44405a;
+    border-radius: 4px;
+    padding: 7px 16px;
+    font-family: monospace;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button:hover { background: #3a3560; }
+  button:disabled { opacity: 0.35; cursor: default; }
+
+  .btn-record { border-color: #c04040; color: #f08080; }
+  .btn-record:hover { background: #3a1a1a; }
+  .btn-record.recording { background: #5a1010; color: #ff6060; border-color: #ff4040; animation: pulse 0.8s infinite; }
+  .btn-play   { border-color: #4080c0; color: #80b8f0; }
+  .btn-play:hover { background: #1a2a3a; }
+  .btn-save   { border-color: #40a060; color: #80d0a0; }
+  .btn-save:hover { background: #1a2e1a; }
+
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+
+  .status {
+    flex: 1;
+    font-size: 13px;
+    color: #888;
+    min-width: 180px;
+  }
+  .status.ready   { color: #80d080; }
+  .status.count   { color: #f0c040; font-size: 18px; font-weight: bold; }
+  .status.rec     { color: #ff6060; }
+  .status.done    { color: #80b8f0; }
+
+  .waveform {
+    width: 180px;
+    height: 36px;
+    background: #111018;
+    border-radius: 3px;
+    border: 1px solid #2a2840;
+  }
+
+  .tip {
+    margin-top: 28px;
+    color: #555;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .tip span { color: #6a8a6a; }
+</style>
+</head>
+<body>
+
+<h1>🎮 Audio Editor</h1>
+<p class="subtitle">Record sounds, then drop the downloaded files into <code>assets/sfx/</code></p>
+
+<div id="app"></div>
+
+<p class="tip">
+  <span>Controls:</span> Click Record → wait for 3-2-1 → make your sound → click Stop<br>
+  <span>Tip:</span> Short sharp sounds work best. Aim for under 1 second for jump/attack/hit.<br>
+  <span>Formats:</span> Saves as .wav — drag into your Godot project's assets/sfx/ folder.
+</p>
+
+<script>
+const SOUNDS = [
+  { id: 'jump',           label: 'Jump',            hint: 'short whoosh / boing' },
+  { id: 'attack',         label: 'Attack',           hint: 'sword swipe / slash' },
+  { id: 'hit',            label: 'Hit (player)',     hint: 'impact / grunt' },
+  { id: 'enemy_defeated', label: 'Enemy Defeated',   hint: 'thud / defeat sound' },
+  { id: 'win',            label: 'Win',              hint: 'fanfare / cheer' },
+];
+
+const state = {}; // id -> { blob, url, recorder, stream }
+
+function build() {
+  const app = document.getElementById('app');
+  for (const snd of SOUNDS) {
+    state[snd.id] = { blob: null, url: null, recorder: null, stream: null };
+
+    const row = document.createElement('div');
+    row.className = 'sound-row';
+    row.id = 'row-' + snd.id;
+    row.innerHTML = `
+      <div class="sound-name">${snd.label}<br><span class="filename">${snd.id}.wav</span></div>
+      <canvas class="waveform" id="wave-${snd.id}" width="180" height="36"></canvas>
+      <div class="status" id="status-${snd.id}">${snd.hint}</div>
+      <button class="btn-record" id="rec-${snd.id}" onclick="startRecord('${snd.id}')">⏺ Record</button>
+      <button class="btn-play"   id="play-${snd.id}" disabled onclick="playSound('${snd.id}')">▶ Play</button>
+      <button class="btn-save"   id="save-${snd.id}" disabled onclick="saveSound('${snd.id}')">💾 Save</button>
+    `;
+    app.appendChild(row);
+  }
+}
+
+async function startRecord(id) {
+  const recBtn = document.getElementById('rec-' + id);
+  const statusEl = document.getElementById('status-' + id);
+
+  // Countdown
+  recBtn.disabled = true;
+  for (const n of ['3', '2', '1']) {
+    statusEl.className = 'status count';
+    statusEl.textContent = n;
+    await sleep(700);
+  }
+  statusEl.className = 'status rec';
+  statusEl.textContent = '● Recording...';
+  recBtn.textContent = '⏹ Stop';
+  recBtn.className = 'btn-record recording';
+  recBtn.disabled = false;
+  recBtn.onclick = () => stopRecord(id);
+
+  // Start recording
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch(e) {
+    statusEl.className = 'status';
+    statusEl.textContent = '⚠ Mic access denied';
+    resetRecBtn(id);
+    return;
+  }
+
+  state[id].stream = stream;
+  const chunks = [];
+  const recorder = new MediaRecorder(stream);
+  state[id].recorder = recorder;
+
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  recorder.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const wavBlob = await toWav(blob);
+    state[id].blob = wavBlob;
+    state[id].url = URL.createObjectURL(wavBlob);
+    document.getElementById('play-' + id).disabled = false;
+    document.getElementById('save-' + id).disabled = false;
+    statusEl.className = 'status done';
+    statusEl.textContent = '✓ Recorded — play or save';
+    drawWaveform(id, wavBlob);
+    resetRecBtn(id);
+  };
+
+  recorder.start();
+}
+
+function stopRecord(id) {
+  state[id].recorder?.stop();
+}
+
+function resetRecBtn(id) {
+  const btn = document.getElementById('rec-' + id);
+  btn.className = 'btn-record';
+  btn.textContent = '⏺ Record';
+  btn.disabled = false;
+  btn.onclick = () => startRecord(id);
+}
+
+function playSound(id) {
+  if (!state[id].url) return;
+  const audio = new Audio(state[id].url);
+  audio.play();
+}
+
+function saveSound(id) {
+  if (!state[id].blob) return;
+  const a = document.createElement('a');
+  a.href = state[id].url;
+  a.download = id + '.wav';
+  a.click();
+}
+
+// Convert MediaRecorder blob -> WAV via AudioContext
+async function toWav(blob) {
+  const arrayBuffer = await blob.arrayBuffer();
+  const audioCtx = new AudioContext();
+  const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+  audioCtx.close();
+
+  const numChannels = 1; // mono
+  const sampleRate = decoded.sampleRate;
+  const samples = decoded.getChannelData(0);
+  const length = samples.length;
+
+  const buffer = new ArrayBuffer(44 + length * 2);
+  const view = new DataView(buffer);
+
+  function write(offset, str) {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  }
+  write(0, 'RIFF');
+  view.setUint32(4,  36 + length * 2, true);
+  write(8, 'WAVE');
+  write(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1,  true);           // PCM
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  write(36, 'data');
+  view.setUint32(40, length * 2, true);
+
+  let offset = 44;
+  for (let i = 0; i < length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    offset += 2;
+  }
+
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+async function drawWaveform(id, blob) {
+  const canvas = document.getElementById('wave-' + id);
+  const ctx = canvas.getContext('2d');
+  const arrayBuffer = await blob.arrayBuffer();
+  const audioCtx = new AudioContext();
+  const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+  audioCtx.close();
+
+  const data = decoded.getChannelData(0);
+  const w = canvas.width, h = canvas.height;
+  const step = Math.ceil(data.length / w);
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#111018';
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = '#60c080';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+
+  for (let i = 0; i < w; i++) {
+    let min = 1, max = -1;
+    for (let j = 0; j < step; j++) {
+      const v = data[i * step + j] || 0;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    const y1 = (1 + min) / 2 * h;
+    const y2 = (1 + max) / 2 * h;
+    ctx.moveTo(i, y1);
+    ctx.lineTo(i, y2);
+  }
+  ctx.stroke();
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+build();
+</script>
+</body>
+</html>

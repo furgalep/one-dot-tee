@@ -61,16 +61,52 @@ func _ready() -> void:
 func _draw() -> void:
 	if flash:
 		return
-	var col = Color(0.3, 0.9, 0.5)
-	# Body
-	draw_rect(Rect2(-7, -13, 14, 13), col)
-	# Head
-	draw_rect(Rect2(-6, -25, 12, 14), col)
-	# Eye
-	draw_rect(Rect2(facing * 2.0, -22.0, 4, 4), Color(0.05, 0.05, 0.15))
-	# Sword flash on attack
+	var silver    := Color(0.72, 0.74, 0.80)
+	var dk_silver := Color(0.40, 0.42, 0.48)
+	var visor_col := Color(0.10, 0.12, 0.22)
+	var red       := Color(0.85, 0.15, 0.15)
+	var gold      := Color(0.90, 0.75, 0.20)
+	var leather   := Color(0.45, 0.30, 0.12)
+
+	# --- Plume ---
+	draw_rect(Rect2(-2, -38, 4, 12), red)
+
+	# --- Helmet ---
+	draw_rect(Rect2(-7, -30, 14, 18), silver)       # main
+	draw_rect(Rect2(-8, -16, 16,  4), dk_silver)    # brim
+	draw_rect(Rect2(-5, -28, 10,  8), visor_col)    # visor
+	draw_rect(Rect2(-4, -25,  8,  3), Color(0.3, 0.5, 0.9, 0.4))  # eye slit glint
+
+	# --- Shoulder pads ---
+	draw_rect(Rect2(-10, -13,  6, 5), dk_silver)
+	draw_rect(Rect2(  4, -13,  6, 5), dk_silver)
+
+	# --- Chest plate ---
+	draw_rect(Rect2(-7, -12, 14, 14), silver)
+	draw_rect(Rect2(-1, -12,  2, 14), dk_silver)    # centre seam
+	draw_rect(Rect2(-7,   0, 14,  3), dk_silver)    # belt
+
+	# --- Legs ---
+	draw_rect(Rect2(-6,  3,  5,  8), silver)
+	draw_rect(Rect2( 1,  3,  5,  8), silver)
+	draw_rect(Rect2(-7,  9,  6,  4), dk_silver)     # left boot
+	draw_rect(Rect2( 1,  9,  6,  4), dk_silver)     # right boot
+
+	# --- Shield (opposite side from sword) ---
+	var sx := -facing * 8.0
+	draw_rect(Rect2(sx - 1, -12,  7, 14), red)
+	draw_rect(Rect2(sx,     -11,  5, 12), Color(0.55, 0.10, 0.10))
+	draw_rect(Rect2(sx + 1,  -6,  3,  3), gold)     # emblem
+
+	# --- Sword ---
+	var wx := facing * 8.0
+	draw_rect(Rect2(wx,            -5, facing * 4,  3), leather)   # handle
+	draw_rect(Rect2(wx - facing,   -9, facing * 3,  9), dk_silver) # guard
 	if is_attacking:
-		draw_rect(Rect2(facing * 10.0, -12.0, facing * 16.0, 6.0), Color(1.0, 0.95, 0.3))
+		draw_rect(Rect2(wx + facing * 2, -8, facing * 22, 4), silver)  # blade
+		draw_rect(Rect2(wx + facing * 22,-7, facing *  4, 2), silver)  # tip
+	else:
+		draw_rect(Rect2(wx + facing * 2, -8, facing * 10, 4), silver)  # sheathed blade
 
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
